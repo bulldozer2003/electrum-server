@@ -607,7 +607,18 @@ class BlockchainProcessor(Processor):
 
         postdata = dumps(rawtxreq)
         try:
-            respdata = urllib.urlopen(self.bitcoind_url, postdata).read()
+            if self.bitcoind_rpc_ssl:
+                parsedurl = urlparse.urlparse(self.bitcoind_url)
+                conn = httplib.HTTPSConnection(parsedurl.hostname, parsedurl.port, None, None, False)
+                conn.request('POST', parsedurl.path, postdata, {
+                    'Host': parsedurl.hostname, 'User-Agent': 'electrum-server',
+                    'Authorization': 'Basic {}'.format( b64encode('{}:{}'.format(parsedurl.username, parsedurl.password)) ),
+                    'Content-type': 'application/json'
+                })
+                resp = conn.getresponse()
+                respdata = resp.read().decode('utf8')
+            else:
+                respdata = urllib.urlopen(self.bitcoind_url, postdata).read()
         except:
             logger.error("bitcoind error (getfullblock)",exc_info=True)
             self.shared.stop()
